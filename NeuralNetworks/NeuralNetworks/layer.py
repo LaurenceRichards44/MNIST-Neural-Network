@@ -1,13 +1,12 @@
 import numpy as np
-from .utils import *
+#from .utils import *
+from utils import *
 
 class Layer():
     def __init__(self, shape, activation = None, activationDerivative=None):
-        if activation == Softmax:
-            self.weights = np.random.randn(*shape) * 0.01
-        else:
-            self.weights = np.random.randn(*shape) * np.sqrt(2 / shape[0])
+        self.weights = np.random.randn(*shape) * (0.01 if activation.__name__ == Softmax else np.sqrt(2 / shape[0]))
         self.biases = np.zeros((1,shape[1]))
+
         self.activation = activation
         self.activationDerivative = activationDerivative
         
@@ -19,15 +18,20 @@ class Layer():
 
         return self.a
     
-    def Backward(self, gradOut, learningRate):
+    def ComputeGradients(self, gradOut):
         da = self.activationDerivative(self.z) if self.activationDerivative else 1
         dz = gradOut * da
 
-        dw = np.dot(self.input.T, dz) / dz.shape[0]
-        db = np.sum(dz, axis=0, keepdims=True) / dz.shape[0]
-
-        self.weights -= dw * learningRate
-        self.biases -= db * learningRate
+        self.dw = np.dot(self.input.T, dz) / dz.shape[0]
+        self.db = np.sum(dz, axis=0, keepdims=True) / dz.shape[0]
 
         gradInput = np.dot(dz, self.weights.T)
         return gradInput
+
+    def Update(self, learningRate):
+        self.weights -= self.dw * learningRate
+        self.biases -= self.db * learningRate
+
+
+    def Print(self):
+        return f"Weights: {self.weights.shape} | Biases: {self.biases.shape} | Activation: {self.activation.__name__} | Activation Derivative: {self.activationDerivative.__name__}"
