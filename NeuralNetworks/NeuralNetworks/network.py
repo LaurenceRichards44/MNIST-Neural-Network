@@ -7,7 +7,47 @@ from utils import *
 #from .utils import activationFunctionsDict, activationFunctionsDerivativeDict, lossFunctionsDict, lossFunctionsDerivativeDict
 
 class Network():
+    """
+    A fully connected feedforward neural network implemented using NumPy.
+
+    Features
+    --------
+    - Multiple hidden layers
+    - Custom activation functions
+    - Cross-entropy and MSE loss
+    - Mini-batch gradient descent training
+    - Model saving and loading
+    - Training visualization tools
+
+    Designed for educational purposes and experimentation.
+    """
     def __init__(self, layerSizes=None, activations=None, lossName=None, optimizer=None):
+        """
+        Initialize a neural network.
+
+        Parameters
+        ----------
+        layerSizes : list[int]
+            List of integers defining the number of neurons in each layer,
+            including input and output layers.
+
+        activations : list[str]
+            List of activation function names for each layer except the input layer.
+            Must have length len(layerSizes) - 1.
+
+        lossName : str
+            Name of the loss function used for training.
+            Supported values are defined in `lossFunctionsDict`.
+
+        optimizer : str, optional
+            Name of the optimizer used during training.
+            (Currently unused but reserved for future expansion.)
+
+        Raises
+        ------
+        ValueError
+            If required parameters are missing or invalid.
+        """
         self.layerSizes = layerSizes
 
         self.lossName = lossName.lower() if lossName != None else lossName
@@ -43,43 +83,65 @@ class Network():
             raise ValueError(f"Loss '{self.lossName}' not supported. Available: {list(lossFunctionsDict.keys())}")
 
         #Raise error if final activation is not supported with loss
-        if (self.activations[-1] == "Softmax") != (lossName == "crossentropy"):
+        if (self.activations[-1] == "softmax") != (lossName == "crossentropy"):
             raise ValueError("Softmax must be used with CrossEntropy, and other activations cannot use CrossEntropy")
 
-    def PrintLayerInfo(self):
-        for layer in self.layers:
-            print(f"Layer {self.layers.index(layer)}: {layer.Print()}")
+    def InitializeLoss(self, lossName):
+        """
+        Initialize the loss function and its derivative.
 
-    def InitializeLoss(self, lossName):        
+        Parameters
+        ----------
+        lossName : str
+            Name of the loss function to use.
+
+        Notes
+        -----
+        The function and its derivative are retrieved from
+        `lossFunctionsDict` and `lossFunctionsDerivativeDict`.
+        """     
         self.lossFunction = lossFunctionsDict[lossName]
         self.lossFunctionDerivative = lossFunctionsDerivativeDict[lossName]
 
     def InitializeLayers(self, layerSizes, activations):
         """
-        Initialize the network layers.
+        Create and initialize all layers of the neural network.
 
         Parameters
         ----------
         layerSizes : list[int]
-            List of integers representing number of neurons in each layer.
+            List of integers specifying the number of neurons in each layer.
+
         activations : list[str]
-            List of activation names for each layer (length must be len(layerSizes)-1).
-            Use "" to default to ReLU for that layer.
+            List of activation function names corresponding to each layer.
+
+        Raises
+        ------
+        ValueError
+            If an activation function name is not supported.
+
+        Notes
+        -----
+        Each layer contains:
+        - Weight matrix
+        - Bias vector
+        - Activation function
+        - Activation derivative
         """
 
         self.layers = []
 
         for i in range(len(layerSizes) - 1):
             #Get activation name, if not provided default to ReLU
-            acttivationName = activations[i].lower() if activations[i] else "relu"
+            activationName = activations[i] if activations[i] else "relu"
 
             #Raise error if activation name is not supported
-            if acttivationName not in activationFunctionsDict:
-                raise ValueError(f"Activation '{acttivationName}' not supported. Available: {list(activationFunctionsDict.keys())}")
+            if activationName not in activationFunctionsDict:
+                raise ValueError(f"Activation '{activationName}' not supported. Available: {list(activationFunctionsDict.keys())}")
 
             #Get activation and corresponding derivative function according to activation name
-            activationFunction = activationFunctionsDict[acttivationName]
-            activationFunctionDerivative = activationFunctionsDerivativeDict.get(acttivationName, None)
+            activationFunction = activationFunctionsDict[activationName]
+            activationFunctionDerivative = activationFunctionsDerivativeDict.get(activationName, None)
 
             #Add layer
             self.layers.append(Layer(
@@ -89,6 +151,26 @@ class Network():
             ))
             
     def Save(self, filename):
+        """
+        Save the trained model to disk.
+
+        Parameters
+        ----------
+        filename : str
+            Path to the file where the model should be saved.
+
+        Notes
+        -----
+        The model is saved as a `.npz` file containing:
+
+        - layer sizes
+        - activation functions
+        - loss function name
+        - weights and biases for each layer
+        - training history (learning rate, epochs, batch size)
+        - loss history
+        - accuracy history
+        """
         modelData = {}
 
         modelData["layersizes"] = self.layerSizes
@@ -111,6 +193,22 @@ class Network():
         print(f"Model saved to {filename}")
 
     def Load(self, filename):
+        """
+        Load a saved model from disk.
+
+        Parameters
+        ----------
+        filename : str
+            Path to the `.npz` file containing the model.
+
+        Notes
+        -----
+        This restores:
+        - network architecture
+        - weights and biases
+        - loss function
+        - training history
+        """
         modelData = np.load(filename, allow_pickle=True)
 
         self.layerSizes = modelData["layersizes"]
@@ -136,48 +234,118 @@ class Network():
 
     @classmethod
     def FromFile(cls, filename = r"C:\Users\laure\OneDrive\Desktop\coding\Python\Github MNIST\MNIST-Neural-Network\NeuralNetworks\models\best.npz"):
+        """
+        Create a Network instance directly from a saved file.
+
+        Parameters
+        ----------
+        filename : str
+            Path to the saved model file.
+
+        Returns
+        -------
+        Network
+            A fully initialized network loaded from disk.
+        """
         model = cls()
         model.Load(filename)
         return model
         
     def Forward(self, X):
+        """
+        Perform a forward pass through the neural network.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Input data with shape (n_samples, n_features).
+
+        Returns
+        -------
+        np.ndarray
+            Output of the final layer.
+
+        Notes
+        -----
+        This method returns the raw network outputs.
+
+        - For **regression tasks**, this method should be used to obtain
+        predicted numerical values.
+        - For **classification tasks**, this method returns the predicted
+        class probabilities (e.g. Softmax outputs).
+
+        In classification problems, `Predict()` should usually be used
+        instead to obtain the final class labels.
+        """
         for layer in self.layers:
             X = layer.Forward(X)
         return X
     
     def Predict(self, X):
-        return np.argmax(self.Forward(X), axis=1)
-    
-    def Train(self, X, Y, learningRate=0.01, epochs=10, batchSize=32, testSize=0.2):
         """
-        Train the neural network on the given dataset.
+        Generate predicted class labels for input data.
 
         Parameters
         ----------
         X : np.ndarray
-            Input features, shape (n_samples, n_features)
-        Y : np.ndarray
-            One-hot encoded labels, shape (n_samples, n_classes)
-        learningRate : float, default=0.01
-            Learning rate for weight updates
-        epochs : int, default=10
-            Number of training epochs
-        batchSize : int, default=32
-            Size of mini-batches
-        testSize : float, default=0.2
-            Fraction of data to use as test set for accuracy evaluation
+            Input features.
 
         Returns
         -------
-        None
-            Updates the network's weights in place and records training loss and accuracy.
-        
+        np.ndarray
+            Array containing the predicted class index for each sample.
+
         Notes
         -----
-        - Uses mini-batch gradient descent.
-        - Supports CrossEntropy and MSE loss functions.
-        - Accuracy calculation requires X_test and Y_test to be provided.
-        - Loss and accuracy for each epoch are stored in `self.lossesArray` and `self.accuracyArray`.
+        This method should be used for **classification tasks**.
+
+        It performs a forward pass through the network and then returns
+        the index of the highest output probability for each sample
+        (using `argmax`).
+
+        For **regression tasks**, use `Forward()` instead to obtain the
+        predicted numerical outputs.
+        """
+        return np.argmax(self.Forward(X), axis=1)
+    
+    def Train(self, X, Y, learningRate=0.01, epochs=10, batchSize=32, testSize=0.2):
+        """
+        Train the neural network using mini-batch gradient descent.
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Training inputs of shape (n_samples, n_features).
+
+        Y : np.ndarray
+            One-hot encoded target labels of shape (n_samples, n_classes).
+
+        learningRate : float, default=0.01
+            Learning rate used to update weights.
+
+        epochs : int, default=10
+            Number of training iterations over the dataset.
+
+        batchSize : int, default=32
+            Number of samples per training batch.
+
+        testSize : float, default=0.2
+            Fraction of the dataset reserved for testing.
+
+        Notes
+        -----
+        Training process:
+        1. Split data into train and test sets
+        2. Shuffle training samples
+        3. Perform forward pass
+        4. Compute loss
+        5. Backpropagate gradients
+        6. Update weights and biases
+
+        Training history (loss and accuracy) is stored in:
+
+        - `self.lossesArray`
+        - `self.accuracyArray`
         """
         
         #Store hyperparameters
@@ -199,7 +367,7 @@ class Network():
         #Initialize arrays for loss and accuracy
         losses = []
         accuracies = []
-        n = len(X)
+        n = len(X_train)
 
         for epoch in range(epochs):
             #intitalize total loss and randomize batches
@@ -210,8 +378,8 @@ class Network():
             for i in range(0, n, batchSize):
                 #Get batch X and Y
                 batchIdx = indices[i:i+batchSize]
-                x = X[batchIdx]
-                y = Y[batchIdx]
+                x = X_train[batchIdx]
+                y = Y_train[batchIdx]
                 
                 #Forward pass
                 yPred = self.Forward(x)
@@ -242,7 +410,7 @@ class Network():
                 true = np.argmax(Y_test, axis=1)
                 accuracy = np.mean(preds == true)
                 accuracies.append(accuracy)
-            elif self.lossName.lower() == "mse":
+            elif self.lossName == "mse":
                 #Regression: use R^2 or inverse MSE as a “pseudo-accuracy”
                 yPred_test = self.Forward(X_test)
                 mse = np.mean((Y_test - yPred_test)**2)
@@ -262,6 +430,17 @@ class Network():
         self.lossesArray.append(losses)
 
     def Summary(self):
+        """
+        Print a summary of the neural network architecture.
+
+        Displays:
+        - layer index
+        - input → output size
+        - activation function
+        - number of parameters
+
+        Also prints the total parameter count.
+        """
         print("Model Summary")
         print("="*50)
         print(f"{'Layer':<10} {'Input → Output':<20} {'Activation':<15} {'Params':<10}")
@@ -280,6 +459,28 @@ class Network():
         print("="*50)
 
     def PlotLossAccuracy(self, splitters : bool = True, linearFit : bool = True):
+        """
+        Plot training loss and accuracy over epochs.
+
+        Parameters
+        ----------
+        splitters : bool, default=True
+            If True, draw vertical lines separating multiple training runs.
+
+        linearFit : bool, default=True
+            If True, fit a linear regression to the later portion of the
+            accuracy curve to estimate improvement rate.
+
+        Notes
+        -----
+        Two plots are produced:
+
+        1. Loss vs Epoch
+        2. Accuracy vs Epoch
+
+        Linear regression is applied to the last portion of each run
+        to estimate learning trends.
+        """
         losses = np.concatenate(self.lossesArray)
         accuracy = np.concatenate(self.accuracyArray)
 
