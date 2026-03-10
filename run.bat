@@ -1,1 +1,0 @@
-python -m voila mnist_draw.ipynb
