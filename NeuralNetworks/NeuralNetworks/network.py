@@ -21,7 +21,7 @@ class Network():
 
     Designed for educational purposes and experimentation.
     """
-    def __init__(self, layerSizes=None, activations=None, lossName=None, optimizer=None):
+    def __init__(self, layerSizes=None, activations=None, lossName=None, optimizer=None, fromFile=False):
         """
         Initialize a neural network.
 
@@ -48,6 +48,10 @@ class Network():
         ValueError
             If required parameters are missing or invalid.
         """
+        
+        if fromFile == True:
+            return
+        
         self.layerSizes = layerSizes
 
         self.lossName = lossName.lower() if lossName != None else lossName
@@ -306,7 +310,12 @@ class Network():
         For **regression tasks**, use `Forward()` instead to obtain the
         predicted numerical outputs.
         """
-        return np.argmax(self.Forward(X), axis=1)
+        y = self.Forward(X)
+        
+        if self.lossName.lower() == "crossentropy":
+            return np.argmax(y, axis=1)
+        return y
+    
     
     def Train(self, X, Y, learningRate=0.01, epochs=10, batchSize=32, testSize=0.2):
         """
@@ -458,7 +467,7 @@ class Network():
         print(f"Total parameters: {total_params}")
         print("="*50)
 
-    def PlotLossAccuracy(self, splitters : bool = True, linearFit : bool = True):
+    def PlotLossAccuracy(self, splitters : bool = True, linearFit : bool = True, legend=True):
         """
         Plot training loss and accuracy over epochs.
 
@@ -492,7 +501,8 @@ class Network():
         ax[0].plot(losses, color='red', linestyle='-', label='Model Loss')
         ax[0].set_xlabel("Epoch")
         ax[0].set_ylabel("Average Loss")
-        ax[0].legend()
+        if legend:
+            ax[0].legend()
 
         if splitters:
             offset = 0
@@ -505,7 +515,8 @@ class Network():
         ax[1].set_yticks(np.arange(0, 1.1, 0.1))
         ax[1].set_xlabel("Epoch")
         ax[1].set_ylabel("Percentage Accuracy")
-        ax[1].legend()
+        if legend:
+            ax[1].legend()
 
         ax[1].plot(accuracy, color='green', linestyle='-', label='Model Accuracy')
 

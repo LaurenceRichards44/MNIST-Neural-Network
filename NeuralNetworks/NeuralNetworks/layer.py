@@ -4,7 +4,7 @@ from utils import *
 
 class Layer():
     def __init__(self, shape, activation = None, activationDerivative=None):
-        self.weights = np.random.randn(*shape) * (0.01 if activation.__name__ == Softmax else np.sqrt(2 / shape[0]))
+        self.weights = np.random.randn(*shape) * (0.01 if activation == Softmax else np.sqrt(2 / shape[0]))
         self.biases = np.zeros((1,shape[1]))
 
         self.activation = activation
@@ -19,7 +19,7 @@ class Layer():
         return self.a
     
     def ComputeGradients(self, gradOut):
-        da = self.activationDerivative(self.z) if self.activationDerivative else 1
+        da = self.activationDerivative(self.z) if self.activationDerivative != None else 1
         dz = gradOut * da
 
         self.dw = np.dot(self.input.T, dz) / dz.shape[0]
