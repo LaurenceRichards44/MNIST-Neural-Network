@@ -71,6 +71,8 @@ class Network():
         self.accuracyArray = []
         self.lossesArray = []
 
+        self.labelDict = None
+
         #Raise error if any parameters are not provided
         if self.layerSizes is None:
             raise ValueError("layerSizes must be provided")
@@ -290,7 +292,7 @@ class Network():
             X = layer.Forward(X)
         return X
     
-    def Predict(self, X):
+    def Predict(self, X, returnLabels = False):
         """
         Generate predicted class labels for input data.
 
@@ -298,6 +300,9 @@ class Network():
         ----------
         X : np.ndarray
             Input features.
+
+        returnLabels : bool, optional
+            If True, returns class labels instead of indices.
 
         Returns
         -------
@@ -309,20 +314,23 @@ class Network():
         This method should be used for **classification tasks**.
 
         It performs a forward pass through the network and then returns
-        the index of the highest output probability for each sample
+        the index/label of the highest output probability for each sample
         (using `argmax`).
 
         For **regression tasks**, use `Forward()` instead to obtain the
         predicted numerical outputs.
         """
-        y = self.Forward(X)
-        
-        if self.lossName.lower() == "crossentropy":
-            return np.argmax(y, axis=1)
-        return y
+        pred_indices = np.argmax(self.Forward(X), axis=1)
+
+        if returnLabels:
+            if self.labelDict is None:
+                raise ValueError("Y was not one-hot encoded; no label dictionary available.")
+            return [self.labelDict[i] for i in pred_indices]
+
+        return pred_indices
     
     
-    def Train(self, X, Y, learningRate=0.01, epochs=10, batchSize=32, testSize=0.2):
+    def Train(self, X, Y, learningRate=0.01, epochs=10, epochsPerPrint=1, batchSize=32, testSize=0.2, labels=None):
         """
         Train the neural network using mini-batch gradient descent.
 
@@ -340,11 +348,18 @@ class Network():
         epochs : int, default=10
             Number of training iterations over the dataset.
 
+        printPerEpoch : int, default=1
+            Number of epochs after which to print training progress.
+
         batchSize : int, default=32
             Number of samples per training batch.
 
         testSize : float, default=0.2
             Fraction of the dataset reserved for testing.
+
+        label_names : list[str], optional
+            List of labels corresponding to each output class.
+            If provided, will be used for returning human-readable predictions.
 
         Notes
         -----
@@ -362,6 +377,10 @@ class Network():
         - `self.accuracyArray`
         """
         
+        #check if y is one hot encoded. If so, create label dictionary
+        if labels is not None:
+            self.labelDict = {i: label for i, label in enumerate(labels)}
+
         #Store hyperparameters
         self.learningRate.append(learningRate)
         self.epochs.append(epochs)
@@ -437,10 +456,11 @@ class Network():
             
             #Print progress
             if len(X_test) > 0:
-                if self.lossName == "crossentropy":
-                    print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test Accuracy={accuracy*100:.2f}%", flush=True)
-                elif self.lossName == "mse":
-                    print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test R^2={r2:.4f}", flush=True)
+                if (epoch+1) % epochsPerPrint == 0:
+                    if self.lossName == "crossentropy":
+                        print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test Accuracy={accuracy*100:.2f}%", flush=True)
+                    elif self.lossName == "mse":
+                        print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test R^2={r2:.4f}", flush=True)
             else:
                 print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test data not provided. No accuracy available.", flush=True)
             
