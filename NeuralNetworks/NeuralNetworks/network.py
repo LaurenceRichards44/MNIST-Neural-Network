@@ -330,7 +330,7 @@ class Network():
         return pred_indices
     
     
-    def Train(self, X, Y, learningRate=0.01, epochs=10, epochsPerPrint=1, batchSize=32, testSize=0.2, labels=None):
+    def Train(self, X, Y, learningRate=0.01, epochs=10, batchSize=32, testSize=0.2, labels=None):
         """
         Train the neural network using mini-batch gradient descent.
 
@@ -432,8 +432,9 @@ class Network():
                 #Update total loss
                 totalLoss += lossValue
 
-            #Calculate average loss for epoch
+            #Calculate average loss for epoch and append to the list
             loss = totalLoss / n
+            losses.append(loss)
 
             #Calculate accuracy if test data is provided
             if(len(X_test) > 0):
@@ -449,27 +450,47 @@ class Network():
                     yPred_test = self.Forward(X_test)
                     mse = np.mean((Y_test - yPred_test)**2)
                     r2 = 1 - mse / np.var(Y_test)
+                    accuracies.append(r2)
                 else:
                         accuracy = None
-            #Append loss
-            losses.append(loss)
-            
-            #Print progress
-            if len(X_test) > 0:
-                if (epoch+1) % epochsPerPrint == 0:
-                    if self.lossName == "crossentropy":
-                        print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test Accuracy={accuracy*100:.2f}%", flush=True)
-                    elif self.lossName == "mse":
-                        print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test R^2={r2:.4f}", flush=True)
-            else:
-                print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test data not provided. No accuracy available.", flush=True)
             
         #Append losses and accuracies
         if accuracies:
             self.accuracyArray.append(accuracies)
         self.lossesArray.append(losses)
 
-    def Summary(self):
+    def TrainSummary(self, epochsPerPrint=1):
+        """
+        Print a summary of all completed training runs.
+        """
+        print("Training Summary")
+        print("=" * 60)
+
+        for run_idx, losses in enumerate(self.lossesArray):
+            accuracies = self.accuracyArray[run_idx] if run_idx < len(self.accuracyArray) else None
+
+            print(f"Run {run_idx + 1}")
+            print("-" * 60)
+
+            for epoch, loss in enumerate(losses):
+                if (epoch + 1) % epochsPerPrint != 0:
+                    continue
+                if accuracies is None:
+                    print(f"Epoch {epoch+1:<5} Loss={loss:.4f} | No accuracy available")
+
+                else:
+                    acc = accuracies[epoch]
+
+                    if self.lossName == "crossentropy":
+                        print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test Accuracy={acc*100:.2f}%")
+                    elif self.lossName == "mse":
+                        print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test R²={acc:.4f}")
+
+            print()
+
+        print("=" * 60)
+
+    def ModelSummary(self):
         """
         Print a summary of the neural network architecture.
 
@@ -482,21 +503,25 @@ class Network():
         Also prints the total parameter count.
         """
         print("Model Summary")
-        print("="*50)
-        print(f"{'Layer':<10} {'Input → Output':<20} {'Activation':<15} {'Params':<10}")
-        print("-"*50)
+        print("=" * 60)
+        print(f"{'Layer':<10}{'Input→Output':<20}{'Activation':<15}{'Params':<15}")
+        print("-" * 60)
 
         total_params = 0
+
         for i, layer in enumerate(self.layers):
             input_size, output_size = layer.weights.shape
             params = input_size * output_size + output_size  # weights + biases
             total_params += params
-            activation_name = layer.activation.__name__ if layer.activation else "None"
-            print(f"{i:<10} {input_size}→{output_size:<15} {activation_name:<15} {params:<10}")
 
-        print("-"*50)
-        print(f"Total parameters: {total_params}")
-        print("="*50)
+            activation_name = layer.activation.__name__ if layer.activation else "None"
+            io = f"{input_size}→{output_size}"
+
+            print(f"{i:<10}{io:<20}{activation_name:<15}{params:<15}")
+
+        print("-" * 60)
+        print(f"{'Total parameters:':<45}{total_params}")
+        print("=" * 60)
 
     def PlotLossAccuracy(self, splitters : bool = True, linearFit : bool = True, legend=True):
         """

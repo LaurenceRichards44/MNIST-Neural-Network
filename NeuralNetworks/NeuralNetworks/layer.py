@@ -10,7 +10,7 @@ class Layer:
         activationDerivative: derivative of activation function
         """
         # Choose proper weight initialization
-        if activation is None or activation == Linear or activation == Linear:
+        if activation is None or activation == Softmax or activation == Linear:
             scale = 0.01
         else:
             scale = np.sqrt(2 / shape[0])
