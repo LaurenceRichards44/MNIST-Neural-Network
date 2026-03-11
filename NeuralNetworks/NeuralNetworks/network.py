@@ -83,7 +83,7 @@ class Network():
             raise ValueError(f"Loss '{self.lossName}' not supported. Available: {list(lossFunctionsDict.keys())}")
 
         #Raise error if final activation is not supported with loss
-        if (self.activations[-1] == "softmax") != (lossName == "crossentropy"):
+        if (self.activations[-1] == "softmax") != (self.lossName == "crossentropy"):
             raise ValueError("Softmax must be used with CrossEntropy, and other activations cannot use CrossEntropy")
 
     def InitializeLoss(self, lossName):
@@ -132,8 +132,13 @@ class Network():
         self.layers = []
 
         for i in range(len(layerSizes) - 1):
-            #Get activation name, if not provided default to ReLU
-            activationName = activations[i] if activations[i] else "relu"
+            # If user gave an empty string "", set default activation depending on the layer and the loss function
+            if activations[i]:
+                activationName = activations[i]
+            elif i == len(layerSizes) - 2:
+                activationName = "linear" if self.lossName == "mse" else "softmax"
+            else:
+                activationName = "relu"
 
             #Raise error if activation name is not supported
             if activationName not in activationFunctionsDict:
@@ -402,27 +407,33 @@ class Network():
             #Calculate average loss for epoch
             loss = totalLoss / n
 
-            #Calculate accuracy
-            if self.lossName == "crossentropy":
-                #Classification: Use percent of time index of 1 is equal in pred and true
-                yPred_test = self.Forward(X_test)
-                preds = np.argmax(yPred_test, axis=1)
-                true = np.argmax(Y_test, axis=1)
-                accuracy = np.mean(preds == true)
-                accuracies.append(accuracy)
-            elif self.lossName == "mse":
-                #Regression: use R^2 or inverse MSE as a “pseudo-accuracy”
-                yPred_test = self.Forward(X_test)
-                mse = np.mean((Y_test - yPred_test)**2)
-                accuracy = 1 - mse / np.var(Y_test)
-            else:
-                accuracy = None
-
+            #Calculate accuracy if test data is provided
+            if(len(X_test) > 0):
+                if self.lossName == "crossentropy":
+                    #Classification: Use percent of time index of 1 is equal in pred and true
+                    yPred_test = self.Forward(X_test)
+                    preds = np.argmax(yPred_test, axis=1)
+                    true = np.argmax(Y_test, axis=1)
+                    accuracy = np.mean(preds == true)
+                    accuracies.append(accuracy)
+                elif self.lossName == "mse":
+                    #Regression: use R^2 or inverse MSE as a “pseudo-accuracy”
+                    yPred_test = self.Forward(X_test)
+                    mse = np.mean((Y_test - yPred_test)**2)
+                    r2 = 1 - mse / np.var(Y_test)
+                else:
+                        accuracy = None
             #Append loss
             losses.append(loss)
             
             #Print progress
-            print(f"Epoch {epoch+1}: Loss={loss:.4f}  Test Accuracy={accuracy*100:.2f}%")
+            if len(X_test) > 0:
+                if self.lossName == "crossentropy":
+                    print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test Accuracy={accuracy*100:.2f}%", flush=True)
+                elif self.lossName == "mse":
+                    print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test R^2={r2:.4f}", flush=True)
+            else:
+                print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test data not provided. No accuracy available.", flush=True)
             
         #Append losses and accuracies
         if accuracies:

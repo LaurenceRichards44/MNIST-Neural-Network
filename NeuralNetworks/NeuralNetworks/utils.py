@@ -1,6 +1,9 @@
 import numpy as np
 
 #===Activation Functions===
+def Linear(X):
+    return X
+
 def ReLU(x):
     return np.maximum(0, x)
 
@@ -16,6 +19,7 @@ def Softmax(x):
     return exp / np.sum(exp, axis=1, keepdims=True)
 
 activationFunctionsDict = {
+    "linear": Linear,
     "relu": ReLU,
     "sigmoid": Sigmoid,
     "tanh": Tanh,
@@ -23,6 +27,9 @@ activationFunctionsDict = {
 }
 
 #===Activation Functions Derivatives===
+def LinearDerivative(x):
+    return np.ones_like(x)
+
 def ReluDerivative(x):
     return (x > 0).astype(float)
 
@@ -34,10 +41,11 @@ def TanhDerivative(x):
     return 1 - np.tanh(x) ** 2
 
 activationFunctionsDerivativeDict = {
+    "linear": LinearDerivative,
     "relu": ReluDerivative,
     "sigmoid": SigmoidDerivative,
     "tanh": TanhDerivative,
-    "softmax": None
+    "softmax": LinearDerivative
     #Softmax is none because the differentiation is handled
     #when combined with Categorical cross entropy as the derivative
     # is much simpler

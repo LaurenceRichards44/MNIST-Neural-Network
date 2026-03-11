@@ -2,11 +2,22 @@ import numpy as np
 #from .utils import *
 from utils import *
 
-class Layer():
-    def __init__(self, shape, activation = None, activationDerivative=None):
-        self.weights = np.random.randn(*shape) * (0.01 if activation.__name__ == Softmax else np.sqrt(2 / shape[0]))
-        self.biases = np.zeros((1,shape[1]))
+class Layer:
+    def __init__(self, shape, activation=None, activationDerivative=None):
+        """
+        shape: tuple (input_size, output_size)
+        activation: activation function
+        activationDerivative: derivative of activation function
+        """
+        # Choose proper weight initialization
+        if activation is None or activation == Linear or activation == Linear:
+            scale = 0.01
+        else:
+            scale = np.sqrt(2 / shape[0])
 
+        self.weights = np.random.randn(*shape) * scale
+        self.biases = np.zeros((1, shape[1]))
+        
         self.activation = activation
         self.activationDerivative = activationDerivative
         
@@ -19,7 +30,7 @@ class Layer():
         return self.a
     
     def ComputeGradients(self, gradOut):
-        da = self.activationDerivative(self.z) if self.activationDerivative else 1
+        da = self.activationDerivative(self.z)
         dz = gradOut * da
 
         self.dw = np.dot(self.input.T, dz) / dz.shape[0]
