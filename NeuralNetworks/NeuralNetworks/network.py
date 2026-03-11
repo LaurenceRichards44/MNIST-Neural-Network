@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
@@ -161,7 +162,7 @@ class Network():
                 activationDerivative=activationFunctionDerivative
             ))
             
-    def Save(self, filename):
+    def Save(self, fileName, folderDir="models/"):
         """
         Save the trained model to disk.
 
@@ -184,24 +185,27 @@ class Network():
         """
         modelData = {}
 
-        modelData["layersizes"] = self.layerSizes
+        # architecture
+        modelData["layerSizes"] = np.array(self.layerSizes)
+        modelData["activations"] = np.array(self.activations)
+        modelData["lossName"] = self.lossName
 
-        modelData["activations"] = self.activations
-        modelData["lossname"] = self.lossName
-
+        # weights
         for i, layer in enumerate(self.layers):
-            modelData[f"weights: {i}"] = layer.weights
-            modelData[f"biases: {i}"] = layer.biases
+            modelData[f"W{i}"] = layer.weights
+            modelData[f"B{i}"] = layer.biases
 
-            modelData["learningrate"] = np.array(self.learningRate, dtype=object)
-            modelData["epochs"] = np.array(self.epochs, dtype=object)
-            modelData["batchsize"] = np.array(self.batchSize, dtype=object)
+        # training history
+        modelData["learningRate"] = np.array(self.learningRate, dtype=object)
+        modelData["epochs"] = np.array(self.epochs, dtype=object)
+        modelData["batchSize"] = np.array(self.batchSize, dtype=object)
 
-            modelData["accuracies"] = np.array(self.accuracyArray, dtype=object)
-            modelData["losses"] = np.array(self.lossesArray, dtype=object)
+        modelData["lossHistory"] = np.array(self.lossesArray, dtype=object)
+        modelData["accuracyHistory"] = np.array(self.accuracyArray, dtype=object)
 
-        np.savez(filename, **modelData)
-        print(f"Model saved to {filename}")
+        np.savez_compressed(folderDir + fileName, **modelData)
+
+        print(f"Model saved to '{folderDir + fileName}'")
 
     def Load(self, filename):
         """
@@ -220,48 +224,40 @@ class Network():
         - loss function
         - training history
         """
-        modelData = np.load(filename, allow_pickle=True)
+        data = np.load(filename, allow_pickle=True)
 
-        self.layerSizes = modelData["layersizes"]
+        # architecture
+        self.layerSizes = data["layerSizes"].tolist()
+        self.activations = data["activations"].tolist()
+        self.lossName = str(data["lossName"])
 
-        self.activations = modelData["activations"]
-        self.lossName = modelData["lossname"]
-
+        # rebuild network structure
         self.InitializeLoss(self.lossName)
         self.InitializeLayers(self.layerSizes, self.activations)
 
+        # load weights
         for i, layer in enumerate(self.layers):
-            layer.weights = modelData[f"weights: {i}"]
-            layer.biases = modelData[f"biases: {i}"]
-            
-        self.learningRate = modelData[f"learningrate"].tolist()
-        self.epochs = modelData[f"epochs"].tolist()
-        self.batchSize = modelData[f"batchsize"].tolist()
-        
-        self.accuracyArray = modelData["accuracies"].tolist()
-        self.lossesArray = modelData["losses"].tolist() 
+            layer.weights = data[f"W{i}"]
+            layer.biases = data[f"B{i}"]
 
-        print(f"Model loaded from \"{filename}\"")
+        # restore history
+        self.learningRate = data["learningRate"].tolist()
+        self.epochs = data["epochs"].tolist()
+        self.batchSize = data["batchSize"].tolist()
+
+        self.lossesArray = data["lossHistory"].tolist()
+        self.accuracyArray = data["accuracyHistory"].tolist()
+
+        print(f"Model loaded from '{filename}'")
 
     @classmethod
-    def FromFile(cls, filename = r"C:\Users\laure\OneDrive\Desktop\coding\Python\Github MNIST\MNIST-Neural-Network\NeuralNetworks\models\best.npz"):
-        """
-        Create a Network instance directly from a saved file.
+    def FromFile(cls, filename, folderDir="models/"):
 
-        Parameters
-        ----------
-        filename : str
-            Path to the saved model file.
+        model = cls.__new__(cls)
+        model.Load(folderDir + filename + ".npz")
 
-        Returns
-        -------
-        Network
-            A fully initialized network loaded from disk.
-        """
-        model = cls()
-        model.Load(filename)
         return model
-        
+
     def Forward(self, X):
         """
         Perform a forward pass through the neural network.
@@ -327,8 +323,7 @@ class Network():
                 raise ValueError("Y was not one-hot encoded; no label dictionary available.")
             return [self.labelDict[i] for i in pred_indices]
 
-        return pred_indices
-    
+        return pred_indices 
     
     def Train(self, X, Y, learningRate=0.01, epochs=10, batchSize=32, testSize=0.2, labels=None):
         """
@@ -603,3 +598,36 @@ class Network():
 
         plt.tight_layout()
         plt.show()
+
+def ListSavedModels(path="models"):
+    """
+    List all saved model files in the default models directory.
+
+    Parameters
+    ----------
+    path : str
+        Directory containing saved models.
+
+    Returns
+    -------
+    list[str]
+        List of model file paths.
+    """
+    if not os.path.exists(path):
+        os.mkdir(path)
+
+    models = [f for f in os.listdir(path) if f.endswith(".npz")]
+
+    if not models:
+        print("No saved models found.")
+        return []
+
+    print("Saved Models:")
+    print("=" * 40)
+
+    for i, model in enumerate(models):
+        print(f"{i+1:<3} {model}")
+
+    print("=" * 40)
+
+    return models
