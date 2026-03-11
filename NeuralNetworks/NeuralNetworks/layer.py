@@ -2,6 +2,7 @@ import numpy as np
 #from .utils import *
 from utils import *
 
+<<<<<<< HEAD
 class Layer:
     def __init__(self, shape, activation=None, activationDerivative=None):
         """
@@ -14,6 +15,12 @@ class Layer:
             scale = 0.01
         else:
             scale = np.sqrt(2 / shape[0])
+=======
+class Layer():
+    def __init__(self, shape, activation = None, activationDerivative=None):
+        self.weights = np.random.randn(*shape) * (0.01 if activation == Softmax else np.sqrt(2 / shape[0]))
+        self.biases = np.zeros((1,shape[1]))
+>>>>>>> ee3109b309db07745674392b3c66063d2b4d4465
 
         self.weights = np.random.randn(*shape) * scale
         self.biases = np.zeros((1, shape[1]))
@@ -30,7 +37,11 @@ class Layer:
         return self.a
     
     def ComputeGradients(self, gradOut):
+<<<<<<< HEAD
         da = self.activationDerivative(self.z)
+=======
+        da = self.activationDerivative(self.z) if self.activationDerivative != None else 1
+>>>>>>> ee3109b309db07745674392b3c66063d2b4d4465
         dz = gradOut * da
 
         self.dw = np.dot(self.input.T, dz) / dz.shape[0]
