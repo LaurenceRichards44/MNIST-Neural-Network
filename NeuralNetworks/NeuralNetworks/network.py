@@ -3,9 +3,10 @@ import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
 from layer import *
-from utils import *
+from activations import *
+from losses import *
 #from .layer import Layer
-#from .utils import activationFunctionsDict, activationFunctionsDerivativeDict, lossFunctionsDict, lossFunctionsDerivativeDict
+#from .activations import *
 
 class Network():
     """

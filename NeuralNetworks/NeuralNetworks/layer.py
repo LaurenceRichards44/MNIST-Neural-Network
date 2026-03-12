@@ -1,6 +1,6 @@
 import numpy as np
-#from .utils import *
-from utils import *
+#from .activations import *
+from activations import *
 
 class Layer:
     def __init__(self, shape, activation=None, activationDerivative=None):
