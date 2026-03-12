@@ -5,8 +5,10 @@ from sklearn.linear_model import LinearRegression
 from layer import *
 from activations import *
 from losses import *
+from optimizers import SGD, Momentum, Adam
 #from .layer import Layer
 #from .activations import *
+#from .optimizers import SGD, Momentum, Adam
 
 class Network():
     """
@@ -54,17 +56,19 @@ class Network():
         if fromFile == True:
             return
         
-        self.layerSizes = layerSizes
-
         self.lossName = lossName.lower() if lossName != None else lossName
-        self.activations = [activation.lower() for activation in activations]
-        self.optimizer = optimizer.lower() if optimizer != None else optimizer
-
         self.lossFunction = None
         self.lossFunctionDerivative = None
 
+        self.layers = []
+        self.layerSizes = layerSizes
+        self.activations = [activation.lower() for activation in activations]
+        self.optimizer = optimizer.lower() if optimizer != None else optimizer
+
         self.InitializeLoss(self.lossName)
         self.InitializeLayers(self.layerSizes, self.activations)
+        self.InitializeOptimizer(self.optimizer, 0.01)
+        
 
         self.learningRate = []
         self.epochs = []
@@ -78,7 +82,6 @@ class Network():
         #Raise error if any parameters are not provided
         if self.layerSizes is None:
             raise ValueError("layerSizes must be provided")
-        #---UPDATE: ADD ABILITY TO FILL WILL RELU AND SOFTMAX IF ACTIVATIONS NOT PROVIDED
         if self.activations is None:
             raise ValueError("activations must be provided")
         if self.lossName is None:
@@ -136,9 +139,6 @@ class Network():
         - Activation function
         - Activation derivative
         """
-
-        self.layers = []
-
         for i in range(len(layerSizes) - 1):
             # If user gave an empty string "", set default activation depending on the layer and the loss function
             if activations[i]:
@@ -162,7 +162,18 @@ class Network():
                 activation=activationFunction,
                 activationDerivative=activationFunctionDerivative
             ))
-            
+
+    def InitializeOptimizer(self, optimizerName, lr):
+        if optimizerName == "sgd":
+            self.optimizer = SGD(lr)
+        elif optimizerName == "momentum":
+            self.optimizer = Momentum(lr)
+        elif optimizerName == "adam":
+            self.optimizer = Adam(lr)
+        else:
+            print(f"Optimizer '{optimizerName}' not supported. Defaulting to 'sgd'")
+            self.optimizer = SGD(lr)
+
     def Save(self, fileName, folderDir="models/"):
         """
         Save the trained model to disk.
@@ -190,6 +201,7 @@ class Network():
         modelData["layerSizes"] = np.array(self.layerSizes)
         modelData["activations"] = np.array(self.activations)
         modelData["lossName"] = self.lossName
+        modelData["optimizer"] = self.optimizer
 
         # weights
         for i, layer in enumerate(self.layers):
@@ -231,6 +243,7 @@ class Network():
         self.layerSizes = data["layerSizes"].tolist()
         self.activations = data["activations"].tolist()
         self.lossName = str(data["lossName"])
+        self.optimizer = str(data["optimizer"])
 
         # rebuild network structure
         self.InitializeLoss(self.lossName)
@@ -364,8 +377,7 @@ class Network():
         2. Shuffle training samples
         3. Perform forward pass
         4. Compute loss
-        5. Backpropagate gradients
-        6. Update weights and biases
+        5. Apply optimizer
 
         Training history (loss and accuracy) is stored in:
 
@@ -399,6 +411,7 @@ class Network():
         n = len(X_train)
 
         for epoch in range(epochs):
+            print(epoch)
             #intitalize total loss and randomize batches
             totalLoss = 0
             indices = np.random.permutation(n)
@@ -420,10 +433,9 @@ class Network():
                 #Calculate gradients for each layer
                 for layer in reversed(self.layers):
                     grad = layer.ComputeGradients(grad)
-                
-                #Update gradients for each layer
-                for layer in self.layers:
-                    layer.Update(learningRate)
+
+                #Apply optimizer
+                self.optimizer.step(self.layers)
 
                 #Update total loss
                 totalLoss += lossValue
@@ -471,16 +483,17 @@ class Network():
             for epoch, loss in enumerate(losses):
                 if (epoch + 1) % epochsPerPrint != 0:
                     continue
+
                 if accuracies is None:
-                    print(f"Epoch {epoch+1:<5} Loss={loss:.4f} | No accuracy available")
+                    print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, No accuracy available")
+                    continue
+                
+                acc = accuracies[epoch]
 
-                else:
-                    acc = accuracies[epoch]
-
-                    if self.lossName == "crossentropy":
-                        print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test Accuracy={acc*100:.2f}%")
-                    elif self.lossName == "mse":
-                        print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test R²={acc:.4f}")
+                if self.lossName == "crossentropy":
+                    print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test Accuracy={acc*100:.2f}%")
+                elif self.lossName == "mse":
+                    print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, Test R²={acc:.4f}")
 
             print()
 
