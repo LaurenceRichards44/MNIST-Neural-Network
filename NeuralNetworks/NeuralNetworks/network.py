@@ -2,13 +2,11 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
-from layer import *
-from activations import *
-from losses import *
-from optimizers import SGD, Momentum, Adam
-#from .layer import Layer
-#from .activations import *
-#from .optimizers import SGD, Momentum, Adam
+from .layer import *
+from .activations import *
+from .losses import *
+from .optimizers import SGD, Momentum, Adam
+from .utils import *
 
 class Network():
     """
@@ -25,7 +23,7 @@ class Network():
 
     Designed for educational purposes and experimentation.
     """
-    def __init__(self, layerSizes=None, activations=None, lossName=None, optimizer=None, fromFile=False):
+    def __init__(self, layerSizes=None, activations=None, lossName=None, optimizer=None, lambda_regularization=0.001):
         """
         Initialize a neural network.
 
@@ -53,9 +51,6 @@ class Network():
             If required parameters are missing or invalid.
         """
         
-        if fromFile == True:
-            return
-        
         self.lossName = lossName.lower() if lossName != None else lossName
         self.lossFunction = None
         self.lossFunctionDerivative = None
@@ -64,10 +59,11 @@ class Network():
         self.layerSizes = layerSizes
         self.activations = [activation.lower() for activation in activations]
         self.optimizer = optimizer.lower() if optimizer != None else optimizer
+        self.lambda_regularization = lambda_regularization
 
         self.InitializeLoss(self.lossName)
-        self.InitializeLayers(self.layerSizes, self.activations)
-        self.InitializeOptimizer(self.optimizer, 0.01)
+        self.InitializeLayers(self.layerSizes, self.activations, self.lambda_regularization)
+        self.InitializeOptimizer(self.optimizer)
         
 
         self.learningRate = []
@@ -114,7 +110,7 @@ class Network():
         self.lossFunction = lossFunctionsDict[lossName]
         self.lossFunctionDerivative = lossFunctionsDerivativeDict[lossName]
 
-    def InitializeLayers(self, layerSizes, activations):
+    def InitializeLayers(self, layerSizes, activations, lambda_regularization):
         """
         Create and initialize all layers of the neural network.
 
@@ -160,19 +156,20 @@ class Network():
             self.layers.append(Layer(
                 shape=(layerSizes[i], layerSizes[i + 1]),
                 activation=activationFunction,
-                activationDerivative=activationFunctionDerivative
+                activationDerivative=activationFunctionDerivative,
+                lambda_regularization=lambda_regularization
             ))
 
-    def InitializeOptimizer(self, optimizerName, lr):
+    def InitializeOptimizer(self, optimizerName):
         if optimizerName == "sgd":
-            self.optimizer = SGD(lr)
+            self.optimizer = SGD
         elif optimizerName == "momentum":
-            self.optimizer = Momentum(lr)
+            self.optimizer = Momentum
         elif optimizerName == "adam":
-            self.optimizer = Adam(lr)
+            self.optimizer = Adam
         else:
             print(f"Optimizer '{optimizerName}' not supported. Defaulting to 'sgd'")
-            self.optimizer = SGD(lr)
+            self.optimizer = SGD()
 
     def Save(self, fileName, folderDir="models/"):
         """
@@ -201,7 +198,7 @@ class Network():
         modelData["layerSizes"] = np.array(self.layerSizes)
         modelData["activations"] = np.array(self.activations)
         modelData["lossName"] = self.lossName
-        modelData["optimizer"] = self.optimizer
+        modelData["optimizer"] = self.optimizer.__name__.lower()
 
         # weights
         for i, layer in enumerate(self.layers):
@@ -248,6 +245,7 @@ class Network():
         # rebuild network structure
         self.InitializeLoss(self.lossName)
         self.InitializeLayers(self.layerSizes, self.activations)
+        self.InitializeOptimizer(self.optimizer)
 
         # load weights
         for i, layer in enumerate(self.layers):
@@ -395,15 +393,7 @@ class Network():
         self.batchSize.append(batchSize)
 
         #Create training and test data based on test-train-split
-        numSamples = X.shape[0]
-        indices = np.arange(numSamples)
-
-        testCount = int(numSamples * testSize)
-        testIdx = indices[:testCount]
-        trainIdx = indices[testCount:]
-
-        X_train, Y_train = X[trainIdx], Y[trainIdx]
-        X_test, Y_test = X[testIdx], Y[testIdx]
+        X_train, Y_train, X_test, Y_test = test_train_split(X, Y, testSize=testSize)
 
         #Initialize arrays for loss and accuracy
         losses = []
@@ -438,29 +428,15 @@ class Network():
                 self.optimizer.step(self.layers)
 
                 #Update total loss
-                totalLoss += lossValue
+                totalLoss += lossValue * len(x)
 
             #Calculate average loss for epoch and append to the list
             loss = totalLoss / n
             losses.append(loss)
 
             #Calculate accuracy if test data is provided
-            if(len(X_test) > 0):
-                if self.lossName == "crossentropy":
-                    #Classification: Use percent of time index of 1 is equal in pred and true
-                    yPred_test = self.Forward(X_test)
-                    preds = np.argmax(yPred_test, axis=1)
-                    true = np.argmax(Y_test, axis=1)
-                    accuracy = np.mean(preds == true)
-                    accuracies.append(accuracy)
-                elif self.lossName == "mse":
-                    #Regression: use R^2 or inverse MSE as a “pseudo-accuracy”
-                    yPred_test = self.Forward(X_test)
-                    mse = np.mean((Y_test - yPred_test)**2)
-                    r2 = 1 - mse / np.var(Y_test)
-                    accuracies.append(r2)
-                else:
-                        accuracy = None
+            accuracy = calculate_accuracy(self.Forward(X_test), Y_test, self.lossName)
+            accuracies.append(accuracy)
             
         #Append losses and accuracies
         if accuracies:

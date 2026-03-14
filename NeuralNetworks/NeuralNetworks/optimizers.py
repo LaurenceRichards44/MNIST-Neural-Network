@@ -5,24 +5,20 @@ class Optimizer:
         raise NotImplementedError
     
 class SGD(Optimizer):
-    def __init__(self, lr):
-        self.lr = lr
-
-    def step(self, layers):
+    def step(self, layers, learningRate=0.01):
         for layer in layers:
-            layer.weights -= self.lr * layer.dw
-            layer.biases -= self.lr * layer.db
+            layer.weights -= learningRate * layer.dw
+            layer.biases -= learningRate * layer.db
 
 class Momentum(Optimizer):
 
-    def __init__(self, lr=0.01, beta=0.9):
-        self.lr = lr
+    def __init__(self, beta=0.9):
         self.beta = beta
         self.vw = []
         self.vb = []
         self.initialized = False
 
-    def step(self, layers):
+    def step(self, layers, learningRate=0.01):
 
         if not self.initialized:
             for layer in layers:
@@ -35,14 +31,13 @@ class Momentum(Optimizer):
             self.vw[i] = self.beta * self.vw[i] + (1 - self.beta) * layer.dw
             self.vb[i] = self.beta * self.vb[i] + (1 - self.beta) * layer.db
 
-            layer.weights -= self.lr * self.vw[i]
-            layer.biases -= self.lr * self.vb[i]
+            layer.weights -= learningRate * self.vw[i]
+            layer.biases -= learningRate * self.vb[i]
 
 class Adam(Optimizer):
 
-    def __init__(self, lr=0.001, beta1=0.9, beta2=0.999, eps=1e-8):
+    def __init__(self, beta1=0.9, beta2=0.999, eps=1e-8):
 
-        self.lr = lr
         self.beta1 = beta1
         self.beta2 = beta2
         self.eps = eps
@@ -57,7 +52,7 @@ class Adam(Optimizer):
         self.initialized = False
 
 
-    def step(self, layers):
+    def step(self, layers, learningRate=0.01):
 
         if not self.initialized:
             for layer in layers:
@@ -88,5 +83,5 @@ class Adam(Optimizer):
             mb_hat = self.mb[i] / (1 - self.beta1 ** self.t)
             vb_hat = self.vb[i] / (1 - self.beta2 ** self.t)
 
-            layer.weights -= self.lr * mw_hat / (np.sqrt(vw_hat) + self.eps)
-            layer.biases -= self.lr * mb_hat / (np.sqrt(vb_hat) + self.eps)
+            layer.weights -= learningRate * mw_hat / (np.sqrt(vw_hat) + self.eps)
+            layer.biases -= learningRate * mb_hat / (np.sqrt(vb_hat) + self.eps)

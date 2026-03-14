@@ -45,7 +45,7 @@ activationFunctionsDerivativeDict = {
     "relu": ReluDerivative,
     "sigmoid": SigmoidDerivative,
     "tanh": TanhDerivative,
-    "softmax": LinearDerivative
+    "softmax": None
     #Softmax is none because the differentiation is handled
     #when combined with Categorical cross entropy as the derivative
     # is much simpler
