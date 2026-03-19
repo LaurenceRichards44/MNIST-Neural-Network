@@ -17,7 +17,7 @@ def CrossEntropyDerivative(y_true, y_pred):
     return y_pred - y_true
 
 def MSELossDerivative(y_true, y_pred):
-    return 2 / y_true.shape[0] * (y_pred - y_true)
+    return 2 * (y_pred - y_true)
 
 lossFunctionsDerivativeDict = {
     "crossentropy": CrossEntropyDerivative,

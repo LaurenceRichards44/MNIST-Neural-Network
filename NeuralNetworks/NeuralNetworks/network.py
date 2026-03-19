@@ -2,6 +2,7 @@ import os
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
+from tqdm import tqdm
 from .layer import *
 from .activations import *
 from .losses import *
@@ -72,8 +73,6 @@ class Network():
         
         self.accuracyArray = []
         self.lossesArray = []
-
-        self.labelDict = None
 
         #Raise error if any parameters are not provided
         if self.layerSizes is None:
@@ -162,11 +161,11 @@ class Network():
 
     def InitializeOptimizer(self, optimizerName):
         if optimizerName == "sgd":
-            self.optimizer = SGD
+            self.optimizer = SGD()
         elif optimizerName == "momentum":
-            self.optimizer = Momentum
+            self.optimizer = Momentum()
         elif optimizerName == "adam":
-            self.optimizer = Adam
+            self.optimizer = Adam()
         else:
             print(f"Optimizer '{optimizerName}' not supported. Defaulting to 'sgd'")
             self.optimizer = SGD()
@@ -198,7 +197,7 @@ class Network():
         modelData["layerSizes"] = np.array(self.layerSizes)
         modelData["activations"] = np.array(self.activations)
         modelData["lossName"] = self.lossName
-        modelData["optimizer"] = self.optimizer.__name__.lower()
+        modelData["optimizer"] = self.optimizer.__class__.__name__.lower()
 
         # weights
         for i, layer in enumerate(self.layers):
@@ -213,6 +212,7 @@ class Network():
         modelData["lossHistory"] = np.array(self.lossesArray, dtype=object)
         modelData["accuracyHistory"] = np.array(self.accuracyArray, dtype=object)
 
+        os.makedirs(folderDir, exist_ok=True)
         np.savez_compressed(folderDir + fileName, **modelData)
 
         print(f"Model saved to '{folderDir + fileName}'")
@@ -244,7 +244,7 @@ class Network():
 
         # rebuild network structure
         self.InitializeLoss(self.lossName)
-        self.InitializeLayers(self.layerSizes, self.activations)
+        self.InitializeLayers(self.layerSizes, self.activations, self.lambda_regularization)
         self.InitializeOptimizer(self.optimizer)
 
         # load weights
@@ -300,7 +300,7 @@ class Network():
             X = layer.Forward(X)
         return X
     
-    def Predict(self, X, returnLabels = False):
+    def Predict(self, X):
         """
         Generate predicted class labels for input data.
 
@@ -328,16 +328,11 @@ class Network():
         For **regression tasks**, use `Forward()` instead to obtain the
         predicted numerical outputs.
         """
-        pred_indices = np.argmax(self.Forward(X), axis=1)
-
-        if returnLabels:
-            if self.labelDict is None:
-                raise ValueError("Y was not one-hot encoded; no label dictionary available.")
-            return [self.labelDict[i] for i in pred_indices]
+        pred_indices = np.argmax(self.Forward(X)[0])
 
         return pred_indices 
     
-    def Train(self, X, Y, learningRate=0.01, epochs=10, batchSize=32, testSize=0.2, labels=None):
+    def Train(self, X_train, Y_train, X_test, Y_test, learningRate=0.01, epochs=10, batchSize=32):
         """
         Train the neural network using mini-batch gradient descent.
 
@@ -347,7 +342,7 @@ class Network():
             Training inputs of shape (n_samples, n_features).
 
         Y : np.ndarray
-            One-hot encoded target labels of shape (n_samples, n_classes).
+            Target labels of shape (n_samples, n_classes).
 
         learningRate : float, default=0.01
             Learning rate used to update weights.
@@ -355,45 +350,27 @@ class Network():
         epochs : int, default=10
             Number of training iterations over the dataset.
 
-        printPerEpoch : int, default=1
-            Number of epochs after which to print training progress.
-
         batchSize : int, default=32
             Number of samples per training batch.
-
-        testSize : float, default=0.2
-            Fraction of the dataset reserved for testing.
-
-        label_names : list[str], optional
-            List of labels corresponding to each output class.
-            If provided, will be used for returning human-readable predictions.
 
         Notes
         -----
         Training process:
-        1. Split data into train and test sets
-        2. Shuffle training samples
-        3. Perform forward pass
-        4. Compute loss
-        5. Apply optimizer
+        1. Shuffle training samples
+        2. Perform forward pass
+        3. Compute loss
+        4. Apply optimizer
 
         Training history (loss and accuracy) is stored in:
 
         - `self.lossesArray`
         - `self.accuracyArray`
         """
-        
-        #check if y is one hot encoded. If so, create label dictionary
-        if labels is not None:
-            self.labelDict = {i: label for i, label in enumerate(labels)}
 
         #Store hyperparameters
         self.learningRate.append(learningRate)
         self.epochs.append(epochs)
         self.batchSize.append(batchSize)
-
-        #Create training and test data based on test-train-split
-        X_train, Y_train, X_test, Y_test = test_train_split(X, Y, testSize=testSize)
 
         #Initialize arrays for loss and accuracy
         losses = []
@@ -401,13 +378,12 @@ class Network():
         n = len(X_train)
 
         for epoch in range(epochs):
-            print(epoch)
             #intitalize total loss and randomize batches
             totalLoss = 0
             indices = np.random.permutation(n)
 
             #Loop through batches for each epoch
-            for i in range(0, n, batchSize):
+            for i in tqdm(range(0, n, batchSize), desc=f"Epoch {epoch+1}/{epochs}", unit="batch"):
                 #Get batch X and Y
                 batchIdx = indices[i:i+batchSize]
                 x = X_train[batchIdx]
@@ -425,7 +401,7 @@ class Network():
                     grad = layer.ComputeGradients(grad)
 
                 #Apply optimizer
-                self.optimizer.step(self.layers)
+                self.optimizer.step(self.layers, learningRate)
 
                 #Update total loss
                 totalLoss += lossValue * len(x)

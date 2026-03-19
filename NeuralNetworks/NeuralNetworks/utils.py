@@ -30,3 +30,41 @@ def calculate_accuracy(X_forward, Y_test, lossName):
             accuracy = 1 - mse / np.var(Y_test)
 
     return accuracy
+
+def one_hot_encode(labels):
+    """
+    Convert class labels to one-hot encoded vectors.
+
+    Parameters
+    ----------
+    labels : array-like
+        List or array of class labels (strings or integers).
+
+    Returns
+    -------
+    one_hot : np.ndarray
+        One-hot encoded matrix of shape (n_samples, n_classes)
+
+    label_dict : dict
+        Mapping from class index to label.
+    """
+
+    labels = np.array(labels)
+
+    # Find unique classes
+    unique_labels = np.unique(labels)
+
+    # Create label -> index mapping
+    label_to_index = {label: i for i, label in enumerate(unique_labels)}
+
+    # Convert labels to indices
+    indices = np.array([label_to_index[label] for label in labels])
+
+    # Create one-hot matrix
+    one_hot = np.zeros((len(labels), len(unique_labels)))
+    one_hot[np.arange(len(labels)), indices] = 1
+
+    # Reverse mapping (index -> label)
+    index_to_label = {i: label for label, i in label_to_index.items()}
+
+    return one_hot, index_to_label
