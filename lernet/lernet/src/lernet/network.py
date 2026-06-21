@@ -1,7 +1,9 @@
 import os
+import itertools
 import numpy as np
 from matplotlib import pyplot as plt
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from tqdm import tqdm
 from .layer import *
 from .activations import *
@@ -190,7 +192,7 @@ class Network():
 			print(f"Optimizer '{optimizerName}' not supported. Defaulting to 'sgd'")
 			self.optimizer = SGD()
 
-	def Save(self, fileName, folderDir="models/"):
+	def Save(self, path):
 		"""
 		Serialize the network and save it to a `.npz` file.
 
@@ -237,10 +239,7 @@ class Network():
 		modelData["lossHistory"] = np.array(self.lossesArray, dtype=object)
 		modelData["accuracyHistory"] = np.array(self.accuracyArray, dtype=object)
 
-		os.makedirs(folderDir, exist_ok=True)
-		np.savez_compressed(folderDir + fileName, **modelData)
-
-		print(f"Model saved to '{folderDir + fileName}'")
+		np.savez_compressed(path, **modelData)
 
 	def Load(self, filename):
 		"""
@@ -386,6 +385,14 @@ class Network():
 		self.lossesArray.append([])
 		n = len(X_train)
 
+		#Get initial performance
+		initial_predictions = self.Forward(X_test)
+		inital_accuracy = calculate_accuracy(initial_predictions, Y_test, self.lossName)
+		initial_loss = self.lossFunction(Y_test, initial_predictions)
+		
+		self.accuracyArray[-1].append(inital_accuracy)
+		self.lossesArray[-1].append(initial_loss)
+
 		for epoch in range(epochs):
 			#intitalize total loss and randomize batches
 			totalLoss = 0
@@ -420,7 +427,6 @@ class Network():
 
 			#Calculate accuracy if test data is provided
 			accuracy = calculate_accuracy(self.Forward(X_test), Y_test, self.lossName)
-			#accuracies.append(accuracy)
 			
 			#Append losses and accuracies
 			self.accuracyArray[-1].append(accuracy)
@@ -440,11 +446,11 @@ class Network():
 			print("-" * 60)
 
 			for epoch, loss in enumerate(losses):
-				if (epoch + 1) % epochsPerPrint != 0:
+				if (epoch) % epochsPerPrint != 0:
 					continue
 
 				if accuracies is None:
-					print(f"Epoch {epoch+1:<5} Loss={loss:.4f}, No accuracy available")
+					print(f"Epoch {epoch:<5} Loss={loss:.4f}, No accuracy available")
 					continue
 				
 				acc = accuracies[epoch]
@@ -573,6 +579,98 @@ class Network():
 				ax[1].plot(xFull, yPredFull, color='black', linestyle='--', label=f'Fit {i+1} ({fit.coef_[0]*10000:.2f}% per 100 epochs)')
 
 				offset += runLength
+
+		plt.tight_layout()
+		plt.show()
+
+	def PlotConfusionMatrix(self, X_test=None, Y_test=None, normalize=False, title='Confusion matrix', labels=None, show_values=False):
+		"""
+		Plot a confusion matrix for a specific training run and epoch.
+
+		Parameters
+		----------
+		X_test : np.ndarray
+			Test input data.
+
+		Y_test : np.ndarray
+			Test target labels, either one-hot or integer labels.
+
+		normalize : bool
+			If True, normalize the confusion matrix (rows sum to 1).
+
+		title : str
+			Title for the plot.
+
+		labels : list or None
+			Optional list of class labels to use for tick labels and ordering.
+
+		show_values : bool
+			If False, numeric values inside the matrix cells will be hidden.
+
+		Returns
+		-------
+		np.ndarray
+			Confusion matrix values.
+		"""
+
+		if X_test is None or Y_test is None:
+			raise ValueError("X_test and Y_test must be provided to plot a confusion matrix.")
+
+		y_pred = np.asarray(self.Forward(X_test))
+		y_true = np.asarray(Y_test)
+
+		if self.lossName != "crossentropy":
+			raise ValueError("Confusion matrix is only supported for crossentropy classification.")
+
+		# Convert one-hot to label indices if necessary
+		if y_true.ndim > 1:
+			y_true = np.argmax(y_true, axis=1)
+
+		y_pred_labels = np.argmax(y_pred, axis=1)
+
+		# Determine class labels/order
+		if labels is not None:
+			classes = np.asarray(labels)
+		else:
+			classes = np.unique(np.concatenate((y_true, y_pred_labels)))
+
+		# Compute confusion matrix with explicit label ordering
+		cm = confusion_matrix(y_true, y_pred_labels, labels=classes, normalize='true' if normalize else None)
+
+		# Flip the matrix so x-axis shows True labels and y-axis shows Predicted labels
+		displayed_cm = cm.T
+
+		# Plot matrix
+		fig, ax = plt.subplots(figsize=(8, 6))
+		im = ax.imshow(displayed_cm, interpolation='nearest', cmap=plt.cm.Blues, vmin=0 if normalize else None)
+
+		# Set ticks and labels (rotate x labels by 90 degrees)
+		ax.set(xticks=np.arange(len(classes)), yticks=np.arange(len(classes)))
+		ax.set_xticklabels([str(c) for c in classes], rotation=-90)  # True labels on x-axis
+		ax.set_yticklabels([str(c) for c in classes])                 # Predicted labels on y-axis
+
+		ax.set_xlabel('True label')
+		ax.set_ylabel('Predicted label')
+		ax.set_title(title)
+
+		# Optionally add numbers inside the cells
+		if show_values:
+			fmt = '.2f' if normalize else 'd'
+			# threshold for text color
+			try:
+				thresh = displayed_cm.max() / 2.0
+			except Exception:
+				thresh = 0
+			for i, j in itertools.product(range(displayed_cm.shape[0]), range(displayed_cm.shape[1])):
+				val = displayed_cm[i, j]
+				ax.text(j, i, format(val, fmt), ha='center', va='center', color='white' if val > thresh else 'black')
+
+		# Colorbar: include ticks 0..1 at 0.2 increments when normalized
+		if normalize:
+			cbar = fig.colorbar(im, ax=ax, ticks=np.arange(0, 1.2, 0.2))
+			cbar.set_label('Proportion')
+		else:
+			cbar = fig.colorbar(im, ax=ax)
 
 		plt.tight_layout()
 		plt.show()

@@ -1,0 +1,11 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lernet"
+version = "0.1.0"
+description = "lerler neural network library"
+
+[tool.setuptools.packages.find]
+where = ["src"]

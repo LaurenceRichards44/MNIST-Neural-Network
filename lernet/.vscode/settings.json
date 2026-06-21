@@ -1,0 +1,6 @@
+{
+    "python.analysis.extraPaths": [
+        "./lernet/src"
+    ],
+    "python.analysis.autoSearchPaths": true
+}
