@@ -20,22 +20,23 @@ From the `lernet` directory (where `pyproject.toml` lives):
 
 ```bash
 pip install -e .
+pip install numpy matplotlib scikit-learn tqdm
 ```
 
-You'll also need these dependencies:
+**Required dependencies:** `numpy`, `matplotlib`, `scikit-learn`, `tqdm`
 
-```bash
-pip install numpy matplotlib scikit-learn tqdm torchvision
-```
+**Optional (MNIST example only):** `torchvision` — not used by the library itself, only shown below as a convenient way to download MNIST. You can pass any NumPy arrays to `Train()`.
 
 ## Quick start — MNIST
 
+This example uses `torchvision` to fetch MNIST. Skip that step if you already have `X_train`, `Y_train`, `X_test`, and `Y_test` as NumPy arrays.
+
 ```python
 import numpy as np
-import torchvision
+import torchvision  # optional — only for loading MNIST
 from lernet import Network
 
-# Load and preprocess MNIST
+# Load and preprocess MNIST (optional; replace with your own data)
 train = torchvision.datasets.MNIST(root="data/", train=True, download=True)
 test = torchvision.datasets.MNIST(root="data/", train=False, download=True)
 
@@ -115,7 +116,8 @@ prediction = model.Predict(X)    # class index for the first sample
 ```python
 model.Save("models/mnist_model.npz")
 
-from lernet import FromFile, ListSavedModels
+from lernet import ListSavedModels
+from lernet.network import FromFile
 
 ListSavedModels("models/")
 loaded = FromFile("mnist_model.npz", folderDir="models/")
